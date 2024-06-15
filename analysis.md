@@ -33,7 +33,13 @@ polygon `B`.
 The algorithm specifies that the output is a touching group, however the
 code also selects, that is, flags one of its vectors as "feasible." This is
 an important side effect of the algorithm. This flag must be stored
-somewhere in the touching group.
+somewhere in the touching group. The flagged vector is called the
+**translation vector.**
+
+Note that the algorithm selects only one touching group. However, later
+steps of further algorithms may find that this touching group can not be
+used. In that case, the algorithm is called again to resume past the
+previous selected group. The input list of touching groups does not change.
 
 ```
 Input: T list; // T list,
@@ -75,6 +81,75 @@ return;
 
 ## Algorithm 2: Compute Translation Distance
 
-The translation vector determined by the **Algorithm 1** only specifies the
-direction. The actual distance of the translation is determined using
-another algorithm.
+The translation vector determined by the **Algorithm 1** may not always be
+used at its full length. The actual distance of the translation is
+determined using another algorithm. This algorithm iteratively shortens the
+translation vector from both sides based on intersection tests.  Provided
+with the translation vector, the algorithm considers each vertex of the
+polygon `A` and translates it along the vector, by placing the starting
+point of the vector to the vertex. If it is determined that the translation
+vector intersects with any of the edges of the polygon `B`, the translation
+vector gets shortened up to the intersection point (see **Figure 9**).
+Then the same procedure is repeated with polygons swapping their roles.
+Indeed, these two parts of the algorithm are identical except for swapping
+`PA` with `PB` and considering the translation vector in the opposite
+direction—this fact is not specified in the algorithm clearly.
+
+Since the run time complexity of this algorithm is *O(nm)*, where *n* and
+*m* are the number of vertices in each of two polygons, the paper proposes
+an optimization. The optimization removes out of consideration those
+vertices that are proven not to cause shortening of the translation vector.
+The algorithm uses two lines, called **upper** and **lower boundary** which
+bound a strip on the plane. Vertices outside of this strip are not
+considered. The exact steps for determining the boundaries are not shown in
+the algorithm, but the principle is described in the section **3.2.3.ii**
+of the paper. There seems to be a contradiction between the description of
+the boundaries in the paper and in the algorithm. According to the paper,
+if the strip is defined based on the polygon `B`, then vertices of the
+other polygon (polygon `A`) outside of this strip are not considered, and
+vice versa. However, the algorithm uses the same polygon both for
+determining the boundaries and considering vertices of. That does not make
+sense since by definition all vertices of the polygon will be inside the
+bounding strip.
+
+There is no explicit output from the algorithm, it just modifies the
+translation vector as a side effect.
+
+```
+Input: PA, PB //two polygons,
+Input: t2 // the selected touching group
+
+Get the translation vector v in t2;
+Initialize ub, lb; // the upper and lower bound
+
+Get the boundary ub and lb about PA based on v;  // ??? PB ???
+i = 0;
+for each vertex point pa of PA do
+  if pa is not in ub and lb bound
+    continue; // point exclusion test
+  for each edge e of PB do
+    Calculate the cross point pc of the pa along v with edge e;
+    if pc exists // intersection happened
+      Get distance d between pc and pa;
+      if d less than the current length of v;
+        The starting point of v = pc;
+        The ending point of v = pa;
+  end for
+end for
+
+// !!! Note that here v is in the opposite direction !!!
+Get the boundary ub and lb about PB based on v;  // ??? PA ???
+i = 0;
+for each vertex point pb of PB do
+  if pb is not in ub and lb bound do
+    continue; // point exclusion test
+  for each edge e of PA do
+    Calculate the cross point pc of the pb along v with edge e;
+    if pc exists // intersection happened
+      Get distance d between pc and pb;
+      if d less than the current length of v;
+        The starting point of v = pb;
+        The ending point of v = pc;
+  end for
+end for
+```
