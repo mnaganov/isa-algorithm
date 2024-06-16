@@ -205,16 +205,44 @@ The aim of the overall algorithm is calculation of a **no-fit polygon**
 (NFP) around the fixed polygon (`A`) which defines the area that can be
 used to test quickly whether the second polygon (`B`) touches the first
 one, by checking whether an arbitrary point of the polygon `B` belongs to
-the NFP. This is much faster than a full polygon intersection test. This
-area is calculated by choosing an arbitrary placement of the polygon `B` so
-that it touches the polygon `A`, and then "orbiting" it around. This works
-well unless the shape of the polygon `A` is such that there is a concave
-part in the polygon `A` with an "entrance" smaller than the polygon `B`
-(see **Figure 11** for an example).
+the NFP. This is much faster than a full polygon intersection test, thus
+using an NFP optimizes trying different polygon layouts. This area is
+calculated by choosing an arbitrary placement of the polygon `B` so that it
+touches the polygon `A`, and then sliding it around.
 
-To calculate the NFP in such a case, multiple slidings from different
-starting points must be performed. The **Algorithm 3** determines whether
-another starting point needs to be chosen, and finds one.
+The sliding method works well unless the polygon `A` has regions that are
+unreachable via sliding, such as a hole inside it, or as shown in example
+on the **Figure 11**. To calculate the NFP in such a case, multiple
+slidings from different starting points must be performed. The
+**Algorithm 3** tries to find alternative starting points. This algorithm
+depends on the **Algorithm 4** for getting a list of translation vectors.
+
+The **Algorithm 3** is designed to be called multiple times for searching
+another starting point, until it has considered all the edges of the
+polygon `A`. That's why the algorithm flags them. This information is used
+in subsequent re-runs of the algorithm.
+
+The algorithm tests each pair of edges from polygons `A` and `B`. If after
+placing the polygon `B` in a way that the starting point of the edge from
+`B` at the starting point of the edge from `A`, the polygons do overlap,
+then this pair should not be considered. Note the typo in the paper's
+algorithm. The algorithm includes an optimization for not considering edges
+of the polygon `B` that fail the **right side test** (see **Figure 12.a** and
+**12.b**).
+
+If the edge passes the check, then the **Algorithm 3** uses the
+**Algorithm 4** for obtaining all translation vectors. If these exist, they
+are used to slide the polygon `B` along the current edge of the polygon `A`
+and test while sliding, if they overlap or not. If they do not overlap,
+then the current position is a new starting point. Otherwise, the algorithm
+determines the translation distance, and slides the polygon `B` by it.  The
+paper says that the translation distance is *calculated similar to the
+steps described in the Section 3.2.3*. This section describes the
+**Algorithm 2**, however the **Algorithm 3** does not explicitly into it.
+This is likely due to the fact that the **Algorithm 2** only considers one
+vector, while the **Algorithm 3** needs to shorten a list of vectors (`V`
+in the algorithm pseudocode). After shortening, the algorithm somehow
+chooses one translation vector from `V`—the exact criteria is not clear.
 
 ```
 Input: PA, PB //two polygons,
@@ -223,18 +251,20 @@ Returns: whether a new starting point has been found
 
 Initialize V = ∅; // the list of storing all translation vectors
 
-for each edge en of PA do
-  if en is visited do
+for each edge e[n] of PA do
+  if e[n] is visited do
     continue;
-  Set en is visited;
-  for each edge em of PA
-    Move PB by making starting point of en and em coincidence;
-    if both em[−1] and em are not on the right side of en do
+  Set e[n] is visited;  // This is because the algorithm may be called iteratively
+  for each edge e[m] of PA  // !!! PB !!!
+    // ??? is it assumed that holes have edges oriented inversely to the outer shell ???
+    Move PB by making starting point of e[n] and e[m] coincidence;  // ??? coincident
+    if both e[m−1] and e[m] are not on the right side of e[n] do
       continue; // “right side” test
     V = ∅; // clear stored vectors
-    If the result of getting translation vectors (PA, PB, en) is false do
+    If the result of getting translation vectors (PA, PB, e[n]) is false do
       continue; // Algorithm 4
-    while the starting point of em does not on the ending point of en do
+    // Algorithm 4 outputs to the list V
+    while the starting point of e[m] does not on the ending point of e[n] do
       if PA does not overlap with PB at this position
         Ptnfp = PBrf; // the reference point PBrf of PB
         return true;
