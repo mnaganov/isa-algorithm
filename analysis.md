@@ -79,6 +79,36 @@ t2 = Select a feasible vector from T based on t1;
 return;
 ```
 
+### Proposed data structures
+
+```
+Point := struct
+  int x, y
+
+Vector := struct
+  Point start, end
+
+TouchingGroup := struct
+  List<Vector> edges
+  nullable Vector& translation_vec
+```
+
+Alternative:
+
+```
+FlaggedVector := struct
+  Vector vec
+  Flag flag
+
+TouchingGroup := List<FlaggedVector>
+```
+
+The `FlaggedVector` can be used first for flagging vectors as "infeasible",
+and then for marking the translation vector. The `FlaggedVector` can also
+be reused in the **Algorithm 3** for polygon edges traversal. One caveat is
+that use of `FlaggedVector` may allow marking several vectors as
+translation vectors by mistake.
+
 ## Algorithm 2: Compute Translation Distance
 
 The translation vector determined by the **Algorithm 1** may not always be
@@ -137,7 +167,7 @@ for each vertex point pa of PA do
   end for
 end for
 
-// !!! Note that here v is in the opposite direction !!!
+// !!! Note that here v is cosidered in the opposite direction !!!
 Get the boundary ub and lb about PB based on v;  // ??? PA ???
 i = 0;
 for each vertex point pb of PB do
@@ -152,4 +182,72 @@ for each vertex point pb of PB do
         The ending point of v = pc;
   end for
 end for
+```
+
+### Proposed data structures
+
+```
+Polygon := List<Vector>
+
+Line := struct
+  int k, b  // y = k*x + b
+
+Stripe := struct
+  Line lower, upper
+```
+
+Also see an alternative definition for the `Polygon` after the
+**Algorithm 3**.
+
+## Algorithm 3: Search for Other Starting Points
+
+The aim of the overall algorithm is calculation of a **no-fit polygon**
+(NFP) around the fixed polygon (`A`) which defines the area that can be
+used to test quickly whether the second polygon (`B`) touches the first
+one, by checking whether an arbitrary point of the polygon `B` belongs to
+the NFP. This is much faster than a full polygon intersection test. This
+area is calculated by choosing an arbitrary placement of the polygon `B` so
+that it touches the polygon `A`, and then "orbiting" it around. This works
+well unless the shape of the polygon `A` is such that there is a concave
+part in the polygon `A` with an "entrance" smaller than the polygon `B`
+(see **Figure 11** for an example).
+
+To calculate the NFP in such a case, multiple slidings from different
+starting points must be performed. The **Algorithm 3** determines whether
+another starting point needs to be chosen, and finds one.
+
+```
+Input: PA, PB //two polygons,
+Input: Ptnfp; // the starting point of new NFP
+Returns: whether a new starting point has been found
+
+Initialize V = ∅; // the list of storing all translation vectors
+
+for each edge en of PA do
+  if en is visited do
+    continue;
+  Set en is visited;
+  for each edge em of PA
+    Move PB by making starting point of en and em coincidence;
+    if both em[−1] and em are not on the right side of en do
+      continue; // “right side” test
+    V = ∅; // clear stored vectors
+    If the result of getting translation vectors (PA, PB, en) is false do
+      continue; // Algorithm 4
+    while the starting point of em does not on the ending point of en do
+      if PA does not overlap with PB at this position
+        Ptnfp = PBrf; // the reference point PBrf of PB
+        return true;
+      Shorten all vectors in V and get the translation vector v;
+      Translate PB by vector v;
+    end while
+  end for
+end for
+return false;
+```
+
+### Proposed data structures
+
+```
+Polygon := List<FlaggedVector>
 ```
